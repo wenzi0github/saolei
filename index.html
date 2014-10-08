@@ -1,0 +1,390 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+	<meta charset="UTF-8"/>
+	<title>扫雷</title>
+	<style type="text/css">
+		body{margin:0;padding:0;}
+		.content{position: relative;float:left;}
+		.content tr{}
+        .content td{width:17px;height:17px;background:#7B68EE;}
+		#bor{border: 1px solid red;width: 15px;height: 15px;position:absolute;top:0;left:0;}
+	</style>
+</head>
+<body oncontextmenu=return(false)>
+<div style="position:relative;">
+<div id="content" class="content">
+	<table cellpadding="0" cellspacing="0">
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+		<tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+	</table>
+</div>
+<div id="bor"></div>
+</div>
+<div style="float:left;">
+	<div id="timer">0</div>
+	<div id="miNum"></div>
+</div>
+<div id="data" style="float:left;">
+	
+</div>
+</body>
+</html>
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.8.0.min.js"></script>
+<script type="text/javascript">
+
+$(function(){
+	// 初始化
+	Cell.getAllCell();
+	Bing.init();
+})
+$(function(){
+	first = true;
+	$("#bor").bind("click", function(){
+		var top  = parseInt($(this).css("top"))/17;
+		var left = parseInt($(this).css("left"))/17;
+		//console.log($(this));
+		Bing.check(top+1, left+1);
+		//console.log(top, left);
+		
+		if(first==true){
+			TimeB.start();
+			first = false;
+		}
+
+		Bing.win();
+	});
+	
+	$("#bor").rightClick(function(){
+		var top  = parseInt($("#bor").css("top"))/17;
+		var left = parseInt($("#bor").css("left"))/17;
+		Bing.right(top+1, left+1);
+	});
+	
+	$("#content").delegate("td", "mouseover", function(){
+		var x = $(this).parent().index();
+		var y = $(this).index();
+		$("#bor").css("top", x*17).css("left", y*17);
+	});
+});
+
+// 游戏计时
+TimeB = {
+	v:null,
+	tt:1,
+	
+	start:function(){
+		TimeB.v = setInterval(function(){
+			$("#timer").html(TimeB.tt);
+			TimeB.tt++;
+		}, 1000);
+	},
+	
+	stop:function(){
+		clearInterval(TimeB.v);
+	}
+},
+
+Bing = {
+	map:[],		// 标记地图中的情况
+	point:[],	// 记录用户对某个块的点击情况， 
+				// 0：用户对该小块没有进行任何的操作  
+				// 1：用户点开了该小块，空白或者数字，  
+				// 100：用户将其标记为雷，  
+				// 101：用户将其标为疑问
+	xMax:10,	// x的最大值
+	yMax:10,	// y的最大值
+	mineNum:10,	// 地雷的数量
+	mineMap:[], // 地雷的分布
+	manMap:[],	// 玩家点击的地雷分布
+	isChange:[],// 玩家是否将其点开
+	
+	/*
+	 * 初始化，布雷，
+	 */
+	init:function(){
+		
+		
+		//初始化地图数组
+		for(var i=0; i<=this.xMax+1; i++){
+			this.map[i]      = [];
+			this.point[i]    = [];
+			this.isChange[i] = [];
+			for(var j=0; j<=this.yMax+1; j++){
+				this.map[i][j]      = -2;
+				this.point[i][j]    = 0;
+				this.isChange[i][j] = false;	//默认没有打开
+			}
+		}
+		//随机布雷
+		this.mineNum = parseInt(Math.random()*3)+this.mineNum;
+		while(true){
+			var x = parseInt(Math.random()*this.xMax)+1;
+			var y = parseInt(Math.random()*this.yMax)+1;
+
+			if(x<=0 || y<=0 || x>=11 || y>=11){
+				continue;
+			}
+
+			this.map[x][y] = -1;
+			this.mineMap.push([x, y]);
+			this.mineNum--;
+			if(this.mineNum==0){
+				break;
+			}
+		}
+		
+		//计算地图中的数字
+		for(var i=1; i<=this.xMax; i++){
+			for(var j=1; j<=this.yMax; j++){
+				if(this.map[i][j]==-1){
+					continue;
+				}
+				var cellMine = [];
+				cellMine = this.getAllDire(i, j);
+				var num = 0;
+				for(var k=0; k<8; k++){
+					if(cellMine[k]==-1){
+						num++;
+					}
+				}
+				this.map[i][j] = num;
+			}
+		}
+		
+		var num = 0;
+		for(var i=0; i<this.xMax+1; i++){
+			for(var j=0; j<this.yMax+1; j++){
+				if(this.map[i][j]==-1){
+					num++;
+				}
+			}
+		}
+		this.mineNum = num;
+		$("#miNum").html(this.mineNum);
+	},
+	
+	//返回该块8个方向的值
+	getAllDire:function(x, y){
+		//console.log(x, y);
+		var cellMine = [];
+		var dire = [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1]];
+		for(var i=0; i<8; i++){
+			var nextx = x+dire[i][0];
+			var nexty = y+dire[i][1];
+			if(nextx>=1 && nexty>=1 && nextx<=10 && nexty<=10){
+				cellMine[i] = this.map[nextx][nexty];
+			}
+			
+		}
+		
+		return cellMine;
+	},
+	
+	//鼠标左键事件，当鼠标点击某个小块时
+	check:function(x, y){
+		//如果遇到地雷
+		if(this.map[x][y]==-1){
+			this.lose();
+		}else if(this.point[x][y]==100){
+			//如果被标记为雷，则不能点击
+			return;
+		}
+
+
+		//如果遇到的是空白区域
+		if(this.map[x][y]==0){
+			var stack = [[x, y]];
+			var dire = [[-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1], [-1, -1]];
+			var asd = [];//保存区域，防止重复计算
+			asd["x"+x+"y"+y] = 1;
+			while(stack.length>0){
+				var s = stack.shift();
+				var x = s[0];
+				var y = s[1];
+				var cellMine = this.getAllDire(x, y);
+				this.map[x][y]      = -2;
+				this.isChange[x][y] = true;
+				this.point[x][y]    = 1;
+				Cell.ce[x][y].css("background", "url('a.jpg') no-repeat 0px -240px");
+				
+				for(var i=0; i<8; i++){
+					var nextx = x+dire[i][0];
+					var nexty = y+dire[i][1];
+					
+					if(!(nextx>=1 && nexty>=1 && nextx<=10 && nexty<=10) || this.point[nextx][nexty]==100){
+						continue;
+					}
+					
+					if(cellMine[i]>=0){
+						var ky = (15-cellMine[i])*16;
+						Cell.ce[nextx][nexty].css("background", "url('a.jpg') no-repeat 0px -"+ky+"px");
+						this.isChange[nextx][nexty] = true;
+						this.point[nextx][nexty]    = 1;
+					}
+					if(cellMine[i]==0 && typeof asd["x"+nextx+"y"+nexty]=="undefined"){
+						stack.push([nextx, nexty]);
+					}
+				}
+			}
+		}
+		if(this.map[x][y]>0){
+			var ky = (15-this.map[x][y])*16;
+			Cell.ce[x][y].css("background", "url('a.jpg') no-repeat 0px -"+ky+"px");
+
+			this.isChange[x][y] = true;
+			this.point[x][y]    = 1;
+		}
+	},
+	
+	//鼠标右键事件
+	right:function(x, y){
+		if(first==true){
+			first = false;
+			TimeB.start();
+		}
+		
+		if(this.point[x][y]==1){
+			return;
+		}
+
+		//获取目前雷剩余的数目
+		var num = parseInt($("#miNum").html());
+
+		//如果当前块还没有做任何的标记，右键后则标记为当前‘有雷’
+		if(this.point[x][y]!=100 && this.point[x][y]!=101){
+			this.point[x][y] = 100;
+			Cell.ce[x][y].css("background", "url('a.jpg') no-repeat 0px -16px");
+			
+			$("#miNum").html(num-1);
+			this.isChange[x][y] = true;
+			this.addMine(x, y);
+		}else if(this.point[x][y]==100){
+			//如果当前标记为‘有雷’，右键后则标记为‘疑问’，不知当前是否有雷
+			this.point[x][y] = 101;
+			Cell.ce[x][y].css("background", "url('a.jpg') no-repeat 0px -32px");
+			
+			$("#miNum").html(num+1);
+			this.isChange[x][y] = false;
+			this.deleteMine(x, y);
+		}else if(this.point[x][y]==101){
+			//如果当前标记为‘疑问’，右键后则把所有的标记去掉
+			this.point[x][y] = 0;
+			Cell.ce[x][y].css("background", "url('a.jpg') no-repeat 0px 0px");
+		}
+	},
+	
+	addMine:function(x, y){
+		this.manMap.push([x, y]);
+	},
+	
+	deleteMine:function(x, y){
+		for(var i=0; i<this.manMap.length; i++){
+			if(this.manMap[i][0]==x && this.manMap[i][1]==y){
+				this.manMap.splice(i, 1);
+			}
+		}
+	},
+	
+	//判断玩家是否赢了
+	win:function(){
+		for(var i=1; i<=10; i++){
+			for(var j=1; j<=10; j++){
+				if(this.isChange[i][j]==false){
+					return;
+				}
+			}
+		}
+		var num = 0;
+		for(var i=0; i<this.mineNum; i++){
+			for(var j=0; j<this.manMap.length; j++){
+				if(this.mineMap[i][0]==this.manMap[j][0] && this.mineMap[i][1]==this.manMap[j][1]){
+					num++;
+				}
+			}
+		}
+		if(num==this.mineNum){
+			TimeB.stop();
+            alert("YOU WIN");
+		}
+	},
+
+	//判断玩家是否输了
+	lose:function(){
+		for(var i=0; i<this.mineMap.length; i++){
+			var x = this.mineMap[i][0];
+			var y = this.mineMap[i][1];
+			
+			Cell.ce[x][y].css("background", "url('a.jpg') no-repeat 0px -48px");
+		}
+		
+		TimeB.stop();
+		alert("YOU LOSE");
+	}
+};
+
+
+Cell = {
+	ce:[],
+
+	getAllCell:function(){
+		var $table = $("#content table");
+		var tr = $table.children().children();
+		for(var i=0; i<=12; i++){
+			this.ce[i] = [];
+			for(var j=0; j<=12; j++){
+				this.ce[i][j] = null;
+			}
+		}
+		
+		for(var i=0; i<tr.length; i++){
+			var td = $(tr[i]).children();
+			this.ce[i+1] = [];
+			for(var j=0; j<td.length; j++){
+				this.ce[i+1][j+1] = $(td[j]);
+				$(td[j]).css("background", "url('a.jpg') no-repeat 0px 0px");
+			}
+		}
+		//var qwe = this.ce[2][2];
+		//qwe.text("2");
+		//console.log(this.ce);
+	},
+	
+	getXYOfCell:function(obj){
+		
+	},
+	
+	getCellOfXY:function(x, y){
+		return this.ce[x][y];
+	}
+},
+
+/*鼠标右键插件*/ 
+(function($) { 
+	$.fn.extend({ 
+		//定义鼠标右键方法，接收一个函数参数 
+		"rightClick":function(fn){ 
+			//调用这个方法后将禁止系统的右键菜单 
+			$(document).bind('contextmenu',function(e){ 
+				return false; 
+			}); 
+			//为这个对象绑定鼠标按下事件 
+			$(this).mousedown(function(e){ 
+				//如果按下的是右键，则执行函数 
+				if(3 == e.which){ 
+					fn(); 
+				} 
+			}); 
+		} 
+	});
+})(jQuery);
+
+</script>
